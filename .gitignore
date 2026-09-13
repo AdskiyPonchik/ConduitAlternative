@@ -1,0 +1,43 @@
+# Maven build output (including future submodules)
+target/
+*.class
+*.jar
+*.war
+*.ear
+# Keep Maven Wrapper if this project uses its JAR
+!.mvn/wrapper/maven-wrapper.jar
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+# Eclipse / Spring Tool Suite
+.classpath
+.project
+.settings/
+.factorypath
+# Local environment and secrets; keep example configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+/.secrets/
+/src/main/resources/application-local.yml
+/src/main/resources/application-local.yaml
+/src/main/resources/application-local.properties
+# Runtime data (root directories, not source packages)
+/data/
+/uploads/
+/logs/
+*.log
+*.log.*
+*.hprof
+hs_err_pid*
+replay_pid*
+# OS and editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
