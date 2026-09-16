@@ -5,3 +5,12 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  config:
+    import: "optional:file:./.env[.properties]"
+
+conduit:
+  jwt:
+    issuer: conduit-backend
+    audience: conduit-api
+    ttl-seconds: 900
+    secret: ${CONDUIT_JWT_SECRET}
