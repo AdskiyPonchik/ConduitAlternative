@@ -14,4 +14,6 @@ public interface UserService {
             @NotNull @Valid LoginUserCommand command
     );
 
+    CurrentUser getCurrentUser(@NotNull UUID userId);
+
 }

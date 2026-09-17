@@ -126,4 +126,11 @@ public class DefaultUserService implements UserService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public CurrentUser getCurrentUser(UUID userID) {
+        User user = users.findById(userID).orElseThrow(CurrentUserNotFoundException::new);
+
+        return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
+    }
 }

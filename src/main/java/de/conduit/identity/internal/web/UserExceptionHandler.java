@@ -1,5 +1,6 @@
 package de.conduit.identity.internal.web;
 
+import de.conduit.identity.internal.application.CurrentUserNotFoundException;
 import de.conduit.identity.internal.application.EmailAlreadyTakenException;
 import de.conduit.identity.internal.application.UsernameAlreadyTakenException;
 import jakarta.validation.ConstraintViolationException;
@@ -72,6 +73,14 @@ public class UserExceptionHandler {
 
     private static ErrorResponse error(String message) {
         return new ErrorResponse(Map.of("body", List.of(message)));
+    }
+
+    @ExceptionHandler(CurrentUserNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleMissingCurrentUser(
+            CurrentUserNotFoundException exception
+    ) {
+        return error(exception.getMessage());
     }
 
     public record ErrorResponse(Map<String, List<String>> errors) {
