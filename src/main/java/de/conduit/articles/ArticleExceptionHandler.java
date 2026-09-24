@@ -6,6 +6,11 @@ import de.conduit.articles.exception.AuthorAccountMissingException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import de.conduit.articles.exception.ArticleAccessDeniedException;
+import de.conduit.articles.exception.InvalidArticleContentException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import de.conduit.articles.exception.InvalidArticleQueryException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -41,6 +46,36 @@ public class ArticleExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse unreadableBody() {
         return error("Request body must contain valid JSON in the expected format");
+    }
+
+    @ExceptionHandler(ArticleAccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse forbidden(ArticleAccessDeniedException exception) {
+        return error(exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidArticleQueryException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse invalidQuery(InvalidArticleQueryException exception) {
+        return error(exception.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse invalidParameterType() {
+        return error("Query parameters have invalid values: limit and offset must be integers");
+    }
+
+    @ExceptionHandler(InvalidArticleContentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse invalidContent(InvalidArticleContentException exception) {
+        return error(exception.getMessage());
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse concurrentChange() {
+        return error("Article was changed by another request. Reload it and try again.");
     }
 
     private static ErrorResponse error(String message) {

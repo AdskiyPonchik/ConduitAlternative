@@ -82,6 +82,8 @@ public class SecurityConfiguration {
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,
+                                "/api/articles",
+                                "/api/articles/",
                                 "/api/tags",
                                 "/api/tags/"
                         ).permitAll()
@@ -103,7 +105,8 @@ public class SecurityConfiguration {
                 )
                 .build();
     }
-    private static OAuth2AuthenticationException invalidAuthorizationHeader(){
+
+    private static OAuth2AuthenticationException invalidAuthorizationHeader() {
         return new OAuth2AuthenticationException(
                 new OAuth2Error(
                         "invalid_token",
