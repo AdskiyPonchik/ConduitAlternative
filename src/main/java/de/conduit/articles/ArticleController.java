@@ -41,8 +41,9 @@ public class ArticleController {
 
     @GetMapping({"/{slug}", "/{slug}/"})
     @Operation(summary = "Get an article")
-    public ArticleEnvelope get(@PathVariable("slug") String slug) {
-        return new ArticleEnvelope(articles.getBySlug(slug));
+    public ArticleEnvelope get(@PathVariable("slug") String slug,
+                               @AuthenticationPrincipal Jwt jwt) {
+        return new ArticleEnvelope(articles.getBySlug(slug, viewerId(jwt)));
     }
 
     @GetMapping({"", "/"})
@@ -50,10 +51,12 @@ public class ArticleController {
     public ArticleListView list(
             @RequestParam(name = "tag", required = false) String tag,
             @RequestParam(name = "author", required = false) String author,
+            @RequestParam(name = "favorited", required = false) String favorited,
             @RequestParam(name = "limit", defaultValue = "20") int limit,
-            @RequestParam(name = "offset", defaultValue = "0") int offset
+            @RequestParam(name = "offset", defaultValue = "0") int offset,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return articles.list(new ListArticlesQuery(tag, author, limit, offset));
+        return articles.list(new ListArticlesQuery(tag, author, favorited, limit, offset), viewerId(jwt));
     }
 
     @PutMapping({"/{slug}", "/{slug}/"})
@@ -78,6 +81,32 @@ public class ArticleController {
     ) {
         UUID actorId = UUID.fromString(jwt.getSubject());
         articles.delete(actorId, slug);
+    }
+
+    @PostMapping({"/{slug}/favorite", "/{slug}/favorite/"})
+    @Operation(summary = "Favorite an article")
+    @SecurityRequirement(name = "tokenAuth")
+    public ArticleEnvelope favorite(
+            @PathVariable("slug") String slug,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID actorId = UUID.fromString(jwt.getSubject());
+        return new ArticleEnvelope(articles.favorite(actorId, slug));
+    }
+
+    @DeleteMapping({"/{slug}/favorite", "/{slug}/favorite/"})
+    @Operation(summary = "Unfavorite an article")
+    @SecurityRequirement(name = "tokenAuth")
+    public ArticleEnvelope unfavorite(
+            @PathVariable("slug") String slug,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID actorId = UUID.fromString(jwt.getSubject());
+        return new ArticleEnvelope(articles.unfavorite(actorId, slug));
+    }
+
+    public static UUID viewerId(Jwt jwt) {
+        return jwt == null ? null : UUID.fromString(jwt.getSubject());
     }
 
 

@@ -1,15 +1,11 @@
 package de.conduit.articles;
 
 
-import de.conduit.articles.exception.ArticleNotFoundException;
-import de.conduit.articles.exception.AuthorAccountMissingException;
+import de.conduit.articles.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import de.conduit.articles.exception.ArticleAccessDeniedException;
-import de.conduit.articles.exception.InvalidArticleContentException;
 import org.springframework.dao.OptimisticLockingFailureException;
-import de.conduit.articles.exception.InvalidArticleQueryException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,6 +72,12 @@ public class ArticleExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse concurrentChange() {
         return error("Article was changed by another request. Reload it and try again.");
+    }
+
+    @ExceptionHandler(FavoriteUserNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse missingFavoriteUser(FavoriteUserNotFoundException exception) {
+        return error(exception.getMessage());
     }
 
     private static ErrorResponse error(String message) {

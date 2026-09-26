@@ -1,7 +1,7 @@
 package de.conduit.articles;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
+import jakarta.persistence.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -14,17 +14,27 @@ import java.util.stream.Collectors;
 public class ArticleQueries {
     private final EntityManager entityManager;
 
-    public ArticleQueries(EntityManager entityManager) {
+    public ArticleQueries (EntityManager entityManager) {
         this.entityManager = entityManager;
     }
 
-    public long count(String tag, UUID authorID) {
-        return filteredQuery("select count(a)", Long.class, tag, authorID, "").getSingleResult();
+    public long count(String tag, UUID authorId, UUID favoritedById) {
+        Number total = (Number) filteredQuery(
+                "select count(*)", Long.class,
+                tag, authorId, favoritedById, ""
+        ).getSingleResult();
+        return total.longValue();
     }
 
 
-    public List<Article> findPage(String tag, UUID authorID, int limit, int offset) {
-        List<UUID> ids = filteredQuery("select a.id", UUID.class, tag, authorID, " order by a.createdAt desc, a.id desc")
+    public List<Article> findPage(
+            String tag, UUID authorId, UUID favoritedById, int limit, int offset
+    ) {
+        List<UUID> ids = filteredQuery(
+                "select a.id", UUID.class,
+                tag, authorId, favoritedById,
+                " order by a.created_at desc, a.id desc"
+        )
                 .setFirstResult(offset)
                 .setMaxResults(limit)
                 .getResultList();
@@ -34,33 +44,53 @@ public class ArticleQueries {
 
         List<Article> loaded = entityManager.createQuery("""
                         select distinct a from Article a left join fetch a.tags
-                        where a.id in :ids""", Article.class).setParameter("ids", ids)
+                        where a.id in :ids
+                        """, Article.class)
+                .setParameter("ids", ids)
                 .getResultList();
-        var byID = loaded.stream().collect(Collectors.toMap(Article::getId, Function.identity()));
+
+        var byId = loaded.stream()
+                .collect(Collectors.toMap(Article::getId, Function.identity()));
         return ids.stream()
-                .map(byID::get)
+                .map(byId::get)
                 .filter(Objects::nonNull)
                 .toList();
     }
 
-
-    private <T> TypedQuery<T> filteredQuery(
-            String selection, Class<T> resultType,
-            String tag, UUID authorID, String ordering) {
-        String jpql = selection + " from Article a where 1=1";
+    private Query filteredQuery(
+            String selection, Class<?> resultType,
+            String tag, UUID authorId, UUID favoritedById, String ordering
+    ) {
+        String sql = selection + " from articles a where 1 = 1";
         if (tag != null) {
-            jpql += " and :tag member of a.tags";
+            sql += """
+                     and exists (
+                        select 1 from article_tags t
+                        where t.article_id = a.id and t.tag = :tag
+                     )
+                    """;
         }
-        if (authorID != null) {
-            jpql += " and a.authorId = :authorID";
+        if (authorId != null) {
+            sql += " and a.author_id = :authorId";
+        }
+        if (favoritedById != null) {
+            sql += """
+                     and exists (
+                        select 1 from article_favorites f
+                        where f.article_id = a.id and f.user_id = :favoritedById
+                     )
+                    """;
         }
 
-        TypedQuery<T> query = entityManager.createQuery(jpql + ordering, resultType);
+        Query query = entityManager.createNativeQuery(sql + ordering, resultType);
         if (tag != null) {
             query.setParameter("tag", tag);
         }
-        if (authorID != null) {
-            query.setParameter("authorID", authorID);
+        if (authorId != null) {
+            query.setParameter("authorId", authorId);
+        }
+        if (favoritedById != null) {
+            query.setParameter("favoritedById", favoritedById);
         }
         return query;
     }

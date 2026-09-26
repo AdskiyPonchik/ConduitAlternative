@@ -13,7 +13,7 @@ public record ArticleView(
         Instant updatedAt,
         AuthorView author,
         boolean favorited,
-        int favoritesCount,
+        long favoritesCount,
         List<String> images
 ) {
     public record AuthorView(

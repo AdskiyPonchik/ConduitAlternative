@@ -5,7 +5,7 @@ import de.conduit.articles.exception.InvalidArticleQueryException;
 import java.util.Locale;
 
 
-public record ListArticlesQuery(String tag, String author, int limit, int offset) {
+public record ListArticlesQuery(String tag, String author, String favorited, int limit, int offset) {
     public ListArticlesQuery {
         if (limit < 1 || limit > 100) {
             throw new InvalidArticleQueryException("Limit must be between 1 and 100");
@@ -21,6 +21,7 @@ public record ListArticlesQuery(String tag, String author, int limit, int offset
         }
 
         author = normalize(author);
+        favorited = normalize(favorited);
     }
 
 
