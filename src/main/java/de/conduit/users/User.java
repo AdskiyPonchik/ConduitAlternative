@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Objects;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -106,6 +107,32 @@ public class User {
         this.username = validUsername;
         this.bio = validBio;
         this.imageUrl = validImageUrl;
+        this.updatedAt = validNow;
+    }
+
+    public void updateAccount(String username, String email, String passwordHash,
+                              String bio, String imageUrl, Instant now) {
+        String nextUsername = username == null ? this.username : requiredText(username,
+                "username", UserConstraints.USERNAME_MAX_LENGTH);
+        String nextEmail = email == null ? this.email : requiredText(email, "email", UserConstraints.EMAIL_MAX_LENGTH).toLowerCase(Locale.ROOT);
+        String nextPasswordHash = passwordHash == null ? this.passwordHash
+                : requiredText(passwordHash, "passwordHash", UserConstraints.PASSWORD_HASH_MAX_LENGTH);
+        String nextBio = bio == null ? this.bio
+                : optionalText(bio, "bio", UserConstraints.BIO_MAX_LENGTH);
+        String nextImageUrl = imageUrl == null ? this.imageUrl
+                : optionalText(imageUrl, "imageUrl", UserConstraints.IMAGE_URL_MAX_LENGTH);
+        Instant validNow = Objects.requireNonNull(now, "now is required");
+
+        if (this.username.equals(nextUsername) && this.email.equals(nextEmail)
+                && this.passwordHash.equals(nextPasswordHash) && this.bio.equals(nextBio)
+                && this.imageUrl.equals(nextImageUrl)) {
+            return;
+        }
+        this.username = nextUsername;
+        this.email = nextEmail;
+        this.passwordHash = nextPasswordHash;
+        this.bio = nextBio;
+        this.imageUrl = nextImageUrl;
         this.updatedAt = validNow;
     }
 

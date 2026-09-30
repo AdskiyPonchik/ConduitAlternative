@@ -102,6 +102,10 @@ public class SecurityConfiguration {
                                 "/api/articles/{slug}/comments",
                                 "/api/articles/{slug}/comments/"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/profiles/{username}",
+                                "/api/profiles/{username}/")
+                        .permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(resourceServer -> resourceServer

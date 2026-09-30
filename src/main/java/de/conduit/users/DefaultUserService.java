@@ -2,14 +2,8 @@ package de.conduit.users;
 
 
 import de.conduit.security.TokenIssuer;
-import de.conduit.users.dto.AuthenticatedUser;
-import de.conduit.users.dto.CurrentUser;
-import de.conduit.users.dto.LoginUserCommand;
-import de.conduit.users.dto.RegisterUserCommand;
-import de.conduit.users.exception.CurrentUserNotFoundException;
-import de.conduit.users.exception.EmailAlreadyTakenException;
-import de.conduit.users.exception.InvalidCredentialsException;
-import de.conduit.users.exception.UsernameAlreadyTakenException;
+import de.conduit.users.dto.*;
+import de.conduit.users.exception.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,9 +32,7 @@ public class DefaultUserService implements UserService {
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.tokens = token;
-        this.dummyPasswordHash = passwordEncoder.encode(
-                UUID.randomUUID().toString()
-        );
+        this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     @Override
@@ -49,13 +41,7 @@ public class DefaultUserService implements UserService {
         String rawPassword = command.password();
         String passwordHash = passwordEncoder.encode(rawPassword);
 
-        User user = User.register(
-                UUID.randomUUID(),
-                command.username(),
-                command.email(),
-                passwordHash,
-                Instant.now(clock)
-        );
+        User user = User.register(UUID.randomUUID(), command.username(), command.email(), passwordHash, Instant.now(clock));
 
         if (users.findByUsernameIgnoreCase(user.getUsername()).isPresent()) {
             throw new UsernameAlreadyTakenException();
@@ -66,19 +52,18 @@ public class DefaultUserService implements UserService {
         try {
             users.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
-            throw translateRegistrationConflict(exception);
+            throw translateUniqueConflict(exception);
         }
 
         return authenticatedUser(user);
     }
 
 
-    private static RuntimeException translateRegistrationConflict(DataIntegrityViolationException exception) {
+    private static RuntimeException translateUniqueConflict(DataIntegrityViolationException exception) {
         Throwable cause = exception;
 
         while (cause != null) {
-            if (cause instanceof ConstraintViolationException violation
-                    && "23505".equals(violation.getSQLState())) {
+            if (cause instanceof ConstraintViolationException violation && "23505".equals(violation.getSQLState())) {
 
                 String constraintName = violation.getConstraintName();
 
@@ -99,17 +84,11 @@ public class DefaultUserService implements UserService {
     @Override
     @Transactional(readOnly = true)
     public AuthenticatedUser login(LoginUserCommand command) {
-        User user = users.findByEmailIgnoreCase(command.email())
-                .orElse(null);
+        User user = users.findByEmailIgnoreCase(command.email()).orElse(null);
 
-        String storedHash = user == null
-                ? dummyPasswordHash
-                : user.getPasswordHash();
+        String storedHash = user == null ? dummyPasswordHash : user.getPasswordHash();
 
-        boolean passwordMatches = passwordEncoder.matches(
-                command.password(),
-                storedHash
-        );
+        boolean passwordMatches = passwordEncoder.matches(command.password(), storedHash);
 
         if (user == null || !passwordMatches) {
             throw new InvalidCredentialsException();
@@ -119,15 +98,7 @@ public class DefaultUserService implements UserService {
     }
 
     private AuthenticatedUser authenticatedUser(User user) {
-        return new AuthenticatedUser(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                tokens.issue(user.getId()),
-                user.getBio(),
-                user.getImageUrl(),
-                user.getRole()
-        );
+        return new AuthenticatedUser(user.getId(), user.getUsername(), user.getEmail(), tokens.issue(user.getId()), user.getBio(), user.getImageUrl(), user.getRole());
     }
 
     @Override
@@ -137,4 +108,39 @@ public class DefaultUserService implements UserService {
 
         return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
     }
+
+    @Override
+    @Transactional
+    public CurrentUser updateCurrentUser(UUID userID, UpdateUserCommand command) {
+        User user = users.findById(userID).orElseThrow(CurrentUserNotFoundException::new);
+        if (command.username() != null) {
+            users.findByUsernameIgnoreCase(command.username()).filter(other -> !other.getId().equals(userID)).ifPresent(other -> {
+                throw new UsernameAlreadyTakenException();
+            });
+        }
+        if (command.email() != null) {
+            users.findByEmailIgnoreCase(command.email()).filter(other -> !other.getId().equals(userID)).ifPresent(other -> {
+                throw new EmailAlreadyTakenException();
+            });
+        }
+
+        String passwordHash = command.password() == null ? null : passwordEncoder.encode(command.password());
+
+        user.updateAccount(command.username(), command.email(), passwordHash, command.bio(), command.image(), Instant.now(clock));
+        try {
+            users.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw translateUniqueConflict(exception);
+        }
+
+        return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProfileView getProfile(String username) {
+        User user = users.findByUsernameIgnoreCase(username.strip()).orElseThrow(ProfileNotFoundException::new);
+        return new ProfileView(user.getUsername(), user.getBio(), user.getImageUrl(), false);
+    }
+
 }
