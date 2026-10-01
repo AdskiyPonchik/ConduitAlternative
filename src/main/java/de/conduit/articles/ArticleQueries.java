@@ -14,25 +14,25 @@ import java.util.stream.Collectors;
 public class ArticleQueries {
     private final EntityManager entityManager;
 
-    public ArticleQueries (EntityManager entityManager) {
+    public ArticleQueries(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
 
-    public long count(String tag, UUID authorId, UUID favoritedById) {
+    public long count(String tag, UUID authorId, UUID favoritedById, UUID followedById) {
         Number total = (Number) filteredQuery(
                 "select count(*)", Long.class,
-                tag, authorId, favoritedById, ""
+                tag, authorId, favoritedById, followedById, ""
         ).getSingleResult();
         return total.longValue();
     }
 
 
     public List<Article> findPage(
-            String tag, UUID authorId, UUID favoritedById, int limit, int offset
+            String tag, UUID authorId, UUID favoritedById, UUID followedById, int limit, int offset
     ) {
         List<UUID> ids = filteredQuery(
                 "select a.id", UUID.class,
-                tag, authorId, favoritedById,
+                tag, authorId, favoritedById, followedById,
                 " order by a.created_at desc, a.id desc"
         )
                 .setFirstResult(offset)
@@ -59,7 +59,7 @@ public class ArticleQueries {
 
     private Query filteredQuery(
             String selection, Class<?> resultType,
-            String tag, UUID authorId, UUID favoritedById, String ordering
+            String tag, UUID authorId, UUID favoritedById, UUID followedById, String ordering
     ) {
         String sql = selection + " from articles a where 1 = 1";
         if (tag != null) {
@@ -82,6 +82,16 @@ public class ArticleQueries {
                     """;
         }
 
+        if (followedById != null) {
+            sql += """
+                     and exists (
+                        select 1 from user_follows f
+                        where f.followed_id = a.author_id and f.follower_id = :followedById
+                     )
+                    """;
+        }
+
+
         Query query = entityManager.createNativeQuery(sql + ordering, resultType);
         if (tag != null) {
             query.setParameter("tag", tag);
@@ -91,6 +101,9 @@ public class ArticleQueries {
         }
         if (favoritedById != null) {
             query.setParameter("favoritedById", favoritedById);
+        }
+        if (followedById != null) {
+            query.setParameter("followedById", followedById);
         }
         return query;
     }

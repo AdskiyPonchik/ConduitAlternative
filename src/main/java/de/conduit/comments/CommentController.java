@@ -27,8 +27,10 @@ public class CommentController {
 
     @GetMapping({"", "/"})
     @Operation(summary = "List comments")
-    public CommentListView list(@PathVariable("slug") String slug) {
-        return comments.list(slug);
+    public CommentListView list(@PathVariable("slug") String slug,
+                                @AuthenticationPrincipal Jwt jwt) {
+        UUID viewerId = jwt == null ? null : UUID.fromString(jwt.getSubject());
+        return comments.list(slug, viewerId);
     }
 
     @PostMapping({"", "/"})

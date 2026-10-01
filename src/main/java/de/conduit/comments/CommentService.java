@@ -9,7 +9,7 @@ import java.util.UUID;
 public interface CommentService {
     CommentView create(UUID actorId, String slug, CreateCommentCommand command);
 
-    CommentListView list(String slug);
+    CommentListView list(String slug, UUID viewerId);
 
     void delete(UUID actorId, String slug, Integer commentId);
 }

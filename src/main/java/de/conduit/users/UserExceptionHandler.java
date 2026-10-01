@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import de.conduit.users.exception.InvalidCredentialsException;
+import de.conduit.users.exception.InvalidFollowException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -72,6 +73,12 @@ public class UserExceptionHandler {
     public ErrorResponse handleUnreadableBody() {
         return error("Request body must contain valid JSON "
                 + "in the expected format");
+    }
+
+    @ExceptionHandler(InvalidFollowException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse invalidFollow(InvalidFollowException exception) {
+        return error(exception.getMessage());
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)

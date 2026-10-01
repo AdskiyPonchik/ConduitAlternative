@@ -6,6 +6,7 @@ import de.conduit.articles.exception.AuthorAccountMissingException;
 import de.conduit.articles.dto.CreateArticleCommand;
 import de.conduit.articles.exception.FavoriteUserNotFoundException;
 import de.conduit.users.AuthorProfiles;
+import de.conduit.users.Following;
 import de.conduit.users.AuthorProfiles.AuthorProfile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,14 +33,16 @@ public class DefaultArticleService implements ArticleService {
     private final Clock clock;
     private final ArticleQueries articleQueries;
     private final ArticleFavorites favorites;
+    private final Following following;
 
     public DefaultArticleService(ArticleRepository articles, AuthorProfiles authors,
-                                 Clock clock, ArticleQueries articleQueries, ArticleFavorites favorites) {
+                                 Clock clock, ArticleQueries articleQueries, ArticleFavorites favorites, Following following) {
         this.articles = articles;
         this.authors = authors;
         this.clock = clock;
         this.articleQueries = articleQueries;
         this.favorites = favorites;
+        this.following = following;
     }
 
     @Override
@@ -62,7 +65,7 @@ public class DefaultArticleService implements ArticleService {
         );
 
         articles.saveAndFlush(article);
-        return view(article, author, ArticleFavorites.FavoriteState.NONE);
+        return view(article, author, ArticleFavorites.FavoriteState.NONE, false);
     }
 
     @Override
@@ -71,7 +74,7 @@ public class DefaultArticleService implements ArticleService {
         Article article = articles.findBySlug(slug).orElseThrow(ArticleNotFoundException::new);
         AuthorProfile author = authors.findById(article.getAuthorId()).orElseThrow(AuthorAccountMissingException::new);
 
-        return view(article, author, favorites.findState(article.getId(), viewerID));
+        return view(article, author, favorites.findState(article.getId(), viewerID), isFollowing(viewerID, article.getAuthorId()));
     }
 
     @Override
@@ -80,7 +83,8 @@ public class DefaultArticleService implements ArticleService {
         return articles.findAllTags();
     }
 
-    private static ArticleView view(Article article, AuthorProfile author, ArticleFavorites.FavoriteState state) {
+    private static ArticleView view(Article article, AuthorProfile author,
+                                    ArticleFavorites.FavoriteState state, boolean following) {
         return new ArticleView(
                 article.getSlug(),
                 article.getTitle(),
@@ -90,7 +94,7 @@ public class DefaultArticleService implements ArticleService {
                 article.getCreatedAt(),
                 article.getUpdatedAt(),
                 new ArticleView.AuthorView(
-                        author.username(), author.bio(), author.image(), false
+                        author.username(), author.bio(), author.image(), following
                 ),
                 state.favorited(),
                 state.count(),
@@ -107,7 +111,7 @@ public class DefaultArticleService implements ArticleService {
         article.updateContent(command.title(), command.description(), command.body(), Instant.now(clock));
         articles.flush();
         AuthorProfile author = authors.findById(article.getAuthorId()).orElseThrow(AuthorAccountMissingException::new);
-        return view(article, author, favorites.findState(article.getId(), actorID));
+        return view(article, author, favorites.findState(article.getId(), actorID), isFollowing(actorID, article.getAuthorId()));
     }
 
     @Override
@@ -150,12 +154,28 @@ public class DefaultArticleService implements ArticleService {
             favoritedByID = favoritingUser.id();
         }
 
-        long total = articleQueries.count(query.tag(), authorID, favoritedByID);
+        return loadPage(query, authorID, favoritedByID, null, viewerID);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArticleListView feed(UUID viewerId, int limit, int offset) {
+        Objects.requireNonNull(viewerId, "viewerId is required");
+        if (authors.findById(viewerId).isEmpty()) {
+            throw new AuthorAccountMissingException();
+        }
+        ListArticlesQuery query = new ListArticlesQuery(null, null, null, limit, offset);
+        return loadPage(query, null, null, viewerId, viewerId);
+    }
+
+    private ArticleListView loadPage(ListArticlesQuery query, UUID authorID,
+                                     UUID favoritedByID, UUID followedByID, UUID viewerID) {
+        long total = articleQueries.count(query.tag(), authorID, favoritedByID, followedByID);
         if (query.offset() >= total) {
             return new ArticleListView(List.of(), total);
         }
         List<Article> page = articleQueries.findPage(
-                query.tag(), authorID, favoritedByID, query.limit(), query.offset()
+                query.tag(), authorID, favoritedByID, followedByID, query.limit(), query.offset()
         );
 
         Set<UUID> authorIDs = page.stream()
@@ -163,6 +183,7 @@ public class DefaultArticleService implements ArticleService {
                 .collect(Collectors.toSet());
 
         Map<UUID, AuthorProfile> profiles = authors.findByIDs(authorIDs);
+        Set<UUID> followedIds = following.findFollowedIds(viewerID, authorIDs);
         Set<UUID> articleIDs = page.stream().map(Article::getId)
                 .collect(Collectors.toSet());
         Map<UUID, ArticleFavorites.FavoriteState> states = favorites.findStates(articleIDs, viewerID);
@@ -172,7 +193,9 @@ public class DefaultArticleService implements ArticleService {
             if (author == null) {
                 throw new IllegalStateException("Article author is missing");
             }
-            return view(article, author, states.getOrDefault(article.getId(), ArticleFavorites.FavoriteState.NONE));
+            return view(article, author,
+                    states.getOrDefault(article.getId(), ArticleFavorites.FavoriteState.NONE),
+                    followedIds.contains(article.getAuthorId()));
         }).toList();
 
         return new ArticleListView(views, total);
@@ -190,6 +213,10 @@ public class DefaultArticleService implements ArticleService {
         return changeFavorite(actorID, slug, false);
     }
 
+
+    private boolean isFollowing(UUID viewerId, UUID authorId) {
+        return following.findFollowedIds(viewerId, Set.of(authorId)).contains(authorId);
+    }
 
     private ArticleView changeFavorite(UUID actorID, String slug, boolean add) {
         Objects.requireNonNull(actorID, "actorId is required");
@@ -209,6 +236,6 @@ public class DefaultArticleService implements ArticleService {
         AuthorProfile author = authors.findById(article.getAuthorId())
                 .orElseThrow(() -> new IllegalStateException("Article author is missing"));
 
-        return view(article, author, favorites.findState(article.getId(), actorID));
+        return view(article, author, favorites.findState(article.getId(), actorID), isFollowing(actorID, article.getAuthorId()));
     }
 }

@@ -83,6 +83,17 @@ public class ArticleController {
         articles.delete(actorId, slug);
     }
 
+    @GetMapping({"/feed", "/feed/"})
+    @Operation(summary = "Get articles from followed user")
+    @SecurityRequirement(name = "tokenAuth")
+    public ArticleListView feed(
+            @RequestParam(name = "limit", defaultValue = "20") int limit,
+            @RequestParam(name = "offset", defaultValue = "0") int offset,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return articles.feed(UUID.fromString(jwt.getSubject()), limit, offset);
+    }
+
     @PostMapping({"/{slug}/favorite", "/{slug}/favorite/"})
     @Operation(summary = "Favorite an article")
     @SecurityRequirement(name = "tokenAuth")

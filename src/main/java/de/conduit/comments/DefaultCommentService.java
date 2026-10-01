@@ -11,6 +11,7 @@ import de.conduit.comments.exception.CommentNotFoundException;
 import de.conduit.comments.exception.CommentUserNotFoundException;
 import de.conduit.users.AuthorProfiles;
 import de.conduit.users.AuthorProfiles.AuthorProfile;
+import de.conduit.users.Following;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,15 +30,17 @@ public class DefaultCommentService implements CommentService {
     private final CommentRepository comments;
     private final AuthorProfiles authors;
     private final Clock clock;
+    private final Following following;
 
     public DefaultCommentService(
             ArticleRepository articles, CommentRepository comments,
-            AuthorProfiles authors, Clock clock
+            AuthorProfiles authors, Clock clock, Following following
     ) {
         this.articles = articles;
         this.comments = comments;
         this.authors = authors;
         this.clock = clock;
+        this.following = following;
     }
 
     @Override
@@ -52,12 +55,12 @@ public class DefaultCommentService implements CommentService {
                 article.getId(), actorId, command.body(), Instant.now(clock)
         );
         comments.saveAndFlush(comment);
-        return view(comment, author);
+        return view(comment, author, false);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CommentListView list(String slug) {
+    public CommentListView list(String slug, UUID viewerID) {
         Article article = articles.findBySlug(slug)
                 .orElseThrow(ArticleNotFoundException::new);
         List<Comment> found = comments.findByArticleIdOrderByCreatedAtDescIdDesc(article.getId());
@@ -65,13 +68,14 @@ public class DefaultCommentService implements CommentService {
                 .map(Comment::getAuthorId)
                 .collect(Collectors.toSet());
         Map<UUID, AuthorProfile> profiles = authors.findByIDs(authorIds);
+        Set<UUID> followedIDs = following.findFollowedIds(viewerID, authorIds);
 
         List<CommentView> views = found.stream().map(comment -> {
             AuthorProfile author = profiles.get(comment.getAuthorId());
             if (author == null) {
                 throw new IllegalStateException("Comment author is missing");
             }
-            return view(comment, author);
+            return view(comment, author, followedIDs.contains(comment.getAuthorId()));
         }).toList();
         return new CommentListView(views);
     }
@@ -97,10 +101,10 @@ public class DefaultCommentService implements CommentService {
         return authors.findById(actorId).orElseThrow(CommentUserNotFoundException::new);
     }
 
-    private static CommentView view(Comment comment, AuthorProfile author) {
+    private static CommentView view(Comment comment, AuthorProfile author, boolean following) {
         return new CommentView(
                 comment.getId(), comment.getCreatedAt(), comment.getUpdatedAt(), comment.getBody(),
-                new CommentView.AuthorView(author.username(), author.bio(), author.image(), false)
+                new CommentView.AuthorView(author.username(), author.bio(), author.image(), following)
         );
     }
 }

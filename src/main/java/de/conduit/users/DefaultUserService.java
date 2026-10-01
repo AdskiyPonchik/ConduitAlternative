@@ -15,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Set;
 
 
 @Service
@@ -26,12 +27,15 @@ public class DefaultUserService implements UserService {
     private final TokenIssuer tokens;
     private final String dummyPasswordHash;
     private final Clock clock;
+    private final UserFollows follows;
 
-    public DefaultUserService(UserRepository users, PasswordEncoder passwordEncoder, Clock clock, TokenIssuer token) {
+    public DefaultUserService(UserRepository users, PasswordEncoder passwordEncoder, Clock clock,
+                              TokenIssuer token, UserFollows follows) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.tokens = token;
+        this.follows = follows;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -138,9 +142,49 @@ public class DefaultUserService implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProfileView getProfile(String username) {
-        User user = users.findByUsernameIgnoreCase(username.strip()).orElseThrow(ProfileNotFoundException::new);
-        return new ProfileView(user.getUsername(), user.getBio(), user.getImageUrl(), false);
+    public ProfileView getProfile(String username, UUID viewerId) {
+        User user = requireProfile(username);
+        boolean following = follows.findFollowedIds(viewerId, Set.of(user.getId()))
+                .contains(user.getId());
+        return profile(user, following);
+    }
+
+    @Override
+    @Transactional
+    public ProfileView follow(UUID actorID, String username) {
+        return changeFollow(actorID, username, true);
+    }
+
+    @Override
+    @Transactional
+    public ProfileView unfollow(UUID actorID, String username) {
+        return changeFollow(actorID, username, false);
+    }
+
+    private ProfileView changeFollow(UUID actorID, String username, boolean add) {
+        if (!users.existsById(actorID)) {
+            throw new CurrentUserNotFoundException();
+        }
+        User target = requireProfile(username);
+        if (actorID.equals(target.getId())) {
+            throw new InvalidFollowException();
+        }
+        if (add) {
+            follows.add(actorID, target.getId());
+        } else {
+            follows.remove(actorID, target.getId());
+        }
+        return profile(target, add);
+    }
+
+
+    private User requireProfile(String username) {
+        return users.findByUsernameIgnoreCase(username.strip())
+                .orElseThrow(ProfileNotFoundException::new);
+    }
+
+    private static ProfileView profile(User user, boolean following) {
+        return new ProfileView(user.getUsername(), user.getBio(), user.getImageUrl(), following);
     }
 
 }

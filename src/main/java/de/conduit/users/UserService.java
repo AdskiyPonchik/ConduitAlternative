@@ -20,5 +20,9 @@ public interface UserService {
 
     CurrentUser updateCurrentUser(@NotNull UUID userID, @NotNull @Valid UpdateUserCommand command);
 
-    ProfileView getProfile(@NotBlank String username);
+    ProfileView getProfile(@NotBlank String username, UUID viewerId);
+
+    ProfileView follow(@NotNull UUID actorID, @NotBlank String username);
+
+    ProfileView unfollow(@NotNull UUID actorID, @NotBlank String username);
 }

@@ -20,6 +20,8 @@ public interface ArticleService {
 
     ArticleListView list(ListArticlesQuery query, UUID viewerID);
 
+    ArticleListView feed(UUID viewerID, int limit, int offset);
+
     void delete(UUID actorID, String slug);
 
     ArticleView favorite(UUID actorId, String slug);
