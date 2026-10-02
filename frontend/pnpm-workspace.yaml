@@ -1,0 +1,6 @@
+ignoredBuiltDependencies:
+  - msw
+  - unrs-resolver
+
+onlyBuiltDependencies:
+  - esbuild
