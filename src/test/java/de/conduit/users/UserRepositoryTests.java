@@ -10,6 +10,7 @@ import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
@@ -58,7 +59,7 @@ class UserRepositoryTests {
     }
 
     @Test
-    void findsUserByEmailIgnoringCase(){
+    void findsUserByEmailIgnoringCase() {
         UUID id = UUID.randomUUID();
         String testingName = "Daniel";
         String testingEmail = "daniel@example.com";
@@ -79,7 +80,7 @@ class UserRepositoryTests {
     }
 
     @Test
-    void findsUserByUsernameIgnoringCase(){
+    void findsUserByUsernameIgnoringCase() {
         UUID id = UUID.randomUUID();
         String testingName = "Daniel";
         String testingEmail = "daniel@example.com";
@@ -99,7 +100,7 @@ class UserRepositoryTests {
     }
 
     @Test
-    void rejectsDuplicateUsernameIgnoringCase(){
+    void rejectsDuplicateUsernameIgnoringCase() {
         UUID id = UUID.randomUUID();
         String testingName = "Daniel";
         String testingEmail = "daniel@example.com";
