@@ -1,5 +1,5 @@
 import type { RouteParams, RouteRecordRaw } from 'vue-router'
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthorized } from './store/user'
 
 export type AppRouteNames =
@@ -14,8 +14,15 @@ export type AppRouteNames =
   | 'profile'
   | 'profile-favorites'
   | 'settings'
+  | 'about'
+  | 'not-found'
 
 export const routes: RouteRecordRaw[] = [
+  {
+    name: 'about',
+    path: '/about',
+    component: () => import('./pages/About.vue'),
+  },
   {
     name: 'global-feed',
     path: '/',
@@ -73,10 +80,24 @@ export const routes: RouteRecordRaw[] = [
     path: '/settings',
     component: () => import('./pages/Settings.vue'),
   },
+  {
+    name: 'not-found',
+    path: '/:pathMatch(.*)*',
+    component: () => import('./pages/NotFound.vue'),
+  },
 ]
 export const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
+  scrollBehavior(to, _from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash }
+    return { top: 0 }
+  },
+})
+
+router.afterEach(to => {
+  document.title = to.name === 'about' ? 'Inside Conduit — Java & Spring' : 'Conduit'
 })
 
 export async function routerPush(name: AppRouteNames, params?: RouteParams): ReturnType<typeof router.push> {

@@ -57,6 +57,11 @@ const allNavLinks = computed<NavLink[]>(() => [
     display: 'all',
   },
   {
+    name: 'about',
+    title: 'About',
+    display: 'all',
+  },
+  {
     name: 'login',
     title: 'Sign in',
     display: 'anonym',
@@ -90,3 +95,15 @@ const navLinks = computed(() => allNavLinks.value.filter(
   link => link.display === displayStatus.value || link.display === 'all',
 ))
 </script>
+
+<style scoped>
+.navbar > .container { flex-wrap: wrap; gap: 4px 16px; }
+.navbar-nav { flex-wrap: wrap; gap: 0 16px; }
+.navbar-nav .nav-item + .nav-item { margin-left: 0; }
+.navbar-light .navbar-nav .nav-link { color: #626b61; }
+@media (max-width: 550px) {
+  .navbar { padding-left: 4px; padding-right: 4px; }
+  .navbar-brand { margin-right: 0; }
+  .navbar-nav { font-size: .875rem; gap: 0 12px; }
+}
+</style>

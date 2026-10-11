@@ -1,6 +1,9 @@
 <template>
   <footer>
     <div class="container">
+      <AppLink name="about" aria-label="About this project">About this project</AppLink>
+    </div>
+    <div class="container">
       <AppLink
         class="logo-font"
         name="global-feed"
