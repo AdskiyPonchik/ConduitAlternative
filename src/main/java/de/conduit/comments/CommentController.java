@@ -13,7 +13,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
+import static de.conduit.security.JwtPrincipals.actorId;
+import static de.conduit.security.JwtPrincipals.viewerId;
 
 @RestController
 @RequestMapping("/api/articles/{slug}/comments")
@@ -27,10 +28,11 @@ public class CommentController {
 
     @GetMapping({"", "/"})
     @Operation(summary = "List comments")
-    public CommentListView list(@PathVariable("slug") String slug,
-                                @AuthenticationPrincipal Jwt jwt) {
-        UUID viewerId = jwt == null ? null : UUID.fromString(jwt.getSubject());
-        return comments.list(slug, viewerId);
+    public CommentListView list(
+            @PathVariable("slug") String slug,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return comments.list(slug, viewerId(jwt));
     }
 
     @PostMapping({"", "/"})
@@ -42,8 +44,7 @@ public class CommentController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateCommentRequest request
     ) {
-        UUID actorId = UUID.fromString(jwt.getSubject());
-        return new CommentEnvelope(comments.create(actorId, slug, request.comment()));
+        return new CommentEnvelope(comments.create(actorId(jwt), slug, request.comment()));
     }
 
     @DeleteMapping({"/{commentId}", "/{commentId}/"})
@@ -55,7 +56,7 @@ public class CommentController {
             @PathVariable("commentId") Integer commentId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        comments.delete(UUID.fromString(jwt.getSubject()), slug, commentId);
+        comments.delete(actorId(jwt), slug, commentId);
     }
 
     public record CreateCommentRequest(@NotNull @Valid CreateCommentCommand comment) {

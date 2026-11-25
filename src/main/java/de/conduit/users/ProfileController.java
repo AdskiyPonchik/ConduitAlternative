@@ -8,7 +8,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
+import static de.conduit.security.JwtPrincipals.actorId;
+import static de.conduit.security.JwtPrincipals.viewerId;
 
 @RestController
 @RequestMapping("/api/profiles")
@@ -22,29 +23,31 @@ public class ProfileController {
 
     @GetMapping({"/{username}", "/{username}/"})
     @Operation(summary = "Get a public profile")
-    public ProfileEnvelope get(@PathVariable("username") String username,
-                               @AuthenticationPrincipal Jwt jwt) {
+    public ProfileEnvelope get(
+            @PathVariable("username") String username,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
         return new ProfileEnvelope(users.getProfile(username, viewerId(jwt)));
     }
 
     @PostMapping({"/{username}/follow", "/{username}/follow/"})
     @Operation(summary = "Follow a user")
     @SecurityRequirement(name = "tokenAuth")
-    public ProfileEnvelope follow(@PathVariable("username") String username,
-                                  @AuthenticationPrincipal Jwt jwt) {
-        return new ProfileEnvelope(users.follow(UUID.fromString(jwt.getSubject()), username));
+    public ProfileEnvelope follow(
+            @PathVariable("username") String username,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return new ProfileEnvelope(users.follow(actorId(jwt), username));
     }
 
     @DeleteMapping({"/{username}/follow", "/{username}/follow/"})
     @Operation(summary = "Unfollow a user")
     @SecurityRequirement(name = "tokenAuth")
-    public ProfileEnvelope unfollow(@PathVariable("username") String username,
-                                    @AuthenticationPrincipal Jwt jwt) {
-        return new ProfileEnvelope(users.unfollow(UUID.fromString(jwt.getSubject()), username));
-    }
-
-    private static UUID viewerId(Jwt jwt) {
-        return jwt == null ? null : UUID.fromString(jwt.getSubject());
+    public ProfileEnvelope unfollow(
+            @PathVariable("username") String username,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return new ProfileEnvelope(users.unfollow(actorId(jwt), username));
     }
 
     public record ProfileEnvelope(ProfileView profile) {

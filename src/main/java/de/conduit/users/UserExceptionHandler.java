@@ -2,90 +2,50 @@ package de.conduit.users;
 
 import de.conduit.users.exception.CurrentUserNotFoundException;
 import de.conduit.users.exception.EmailAlreadyTakenException;
-import de.conduit.users.exception.UsernameAlreadyTakenException;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.ElementKind;
-import de.conduit.users.exception.InvalidUserUpdateException;
-import de.conduit.users.exception.ProfileNotFoundException;
-import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import de.conduit.users.exception.InvalidCredentialsException;
 import de.conduit.users.exception.InvalidFollowException;
-import org.springframework.web.bind.annotation.*;
+import de.conduit.users.exception.InvalidUserUpdateException;
+import de.conduit.users.exception.ProfileNotFoundException;
+import de.conduit.users.exception.UsernameAlreadyTakenException;
+import de.conduit.web.ApiExceptionHandler;
+import de.conduit.web.ErrorResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
-import java.util.Map;
 
 @RestControllerAdvice(assignableTypes = {UserController.class, ProfileController.class})
-public class UserExceptionHandler {
+public class UserExceptionHandler extends ApiExceptionHandler {
 
-    @ExceptionHandler({
-            UsernameAlreadyTakenException.class,
-            EmailAlreadyTakenException.class
-    })
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleConflict(RuntimeException exception) {
-        return error(exception.getMessage());
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleRequestValidation(
-            MethodArgumentNotValidException exception
-    ) {
-        List<String> messages = exception.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> error.getField()
-                        + ": " + error.getDefaultMessage())
-                .sorted()
-                .toList();
-
-        return new ErrorResponse(Map.of("body", messages));
-    }
-
+    /**
+     * Raised by method validation on {@code @Validated} {@link DefaultUserService}.
+     */
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleServiceValidation(
-            ConstraintViolationException exception
-    ) {
-        List<String> messages = exception.getConstraintViolations()
-                .stream()
-                .map(violation -> {
-                    String field = "request";
-                    for (var node : violation.getPropertyPath()) {
-                        if (node.getKind() == ElementKind.PROPERTY) {
-                            field = node.getName();
-                        }
-                    }
-                    return field + ": " + violation.getMessage();
-                })
+    public ErrorResponse serviceValidation(ConstraintViolationException exception) {
+        List<String> messages = exception.getConstraintViolations().stream()
+                .map(violation -> lastPropertyName(violation) + ": " + violation.getMessage())
                 .sorted()
                 .toList();
-
-        return new ErrorResponse(Map.of("body", messages));
+        return ErrorResponse.of(messages);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler({InvalidFollowException.class, InvalidUserUpdateException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleUnreadableBody() {
-        return error("Request body must contain valid JSON "
-                + "in the expected format");
-    }
-
-    @ExceptionHandler(InvalidFollowException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse invalidFollow(InvalidFollowException exception) {
+    public ErrorResponse badRequest(RuntimeException exception) {
         return error(exception.getMessage());
     }
 
-    @ExceptionHandler(InvalidCredentialsException.class)
+    @ExceptionHandler({InvalidCredentialsException.class, CurrentUserNotFoundException.class})
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse handleInvalidCredentials(
-            InvalidCredentialsException exception
-    ) {
+    public ErrorResponse unauthorized(RuntimeException exception) {
         return error(exception.getMessage());
     }
 
@@ -95,9 +55,9 @@ public class UserExceptionHandler {
         return error(exception.getMessage());
     }
 
-    @ExceptionHandler(InvalidUserUpdateException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse invalidUpdate(InvalidUserUpdateException exception) {
+    @ExceptionHandler({UsernameAlreadyTakenException.class, EmailAlreadyTakenException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse alreadyTaken(RuntimeException exception) {
         return error(exception.getMessage());
     }
 
@@ -107,18 +67,13 @@ public class UserExceptionHandler {
         return error("User was changed by another request. Reload it and try again.");
     }
 
-    private static ErrorResponse error(String message) {
-        return new ErrorResponse(Map.of("body", List.of(message)));
-    }
-
-    @ExceptionHandler(CurrentUserNotFoundException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse handleMissingCurrentUser(
-            CurrentUserNotFoundException exception
-    ) {
-        return error(exception.getMessage());
-    }
-
-    public record ErrorResponse(Map<String, List<String>> errors) {
+    private static String lastPropertyName(ConstraintViolation<?> violation) {
+        String field = "request";
+        for (Path.Node node : violation.getPropertyPath()) {
+            if (node.getKind() == ElementKind.PROPERTY) {
+                field = node.getName();
+            }
+        }
+        return field;
     }
 }

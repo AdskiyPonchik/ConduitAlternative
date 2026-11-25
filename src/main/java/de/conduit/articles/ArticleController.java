@@ -1,7 +1,10 @@
 package de.conduit.articles;
 
+import de.conduit.articles.dto.ArticleListView;
 import de.conduit.articles.dto.ArticleView;
 import de.conduit.articles.dto.CreateArticleCommand;
+import de.conduit.articles.dto.ListArticlesQuery;
+import de.conduit.articles.dto.UpdateArticleCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,13 +13,10 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import de.conduit.articles.dto.UpdateArticleCommand;
-import de.conduit.articles.dto.ArticleListView;
-import de.conduit.articles.dto.ListArticlesQuery;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
+import static de.conduit.security.JwtPrincipals.actorId;
+import static de.conduit.security.JwtPrincipals.viewerId;
 
 @RestController
 @RequestMapping("/api/articles")
@@ -34,15 +34,17 @@ public class ArticleController {
     @SecurityRequirement(name = "tokenAuth")
     public ArticleEnvelope create(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody CreateArticleRequest request) {
-        UUID authorID = UUID.fromString(jwt.getSubject());
-        return new ArticleEnvelope(articles.create(authorID, request.article()));
+            @Valid @RequestBody CreateArticleRequest request
+    ) {
+        return new ArticleEnvelope(articles.create(actorId(jwt), request.article()));
     }
 
     @GetMapping({"/{slug}", "/{slug}/"})
     @Operation(summary = "Get an article")
-    public ArticleEnvelope get(@PathVariable("slug") String slug,
-                               @AuthenticationPrincipal Jwt jwt) {
+    public ArticleEnvelope get(
+            @PathVariable("slug") String slug,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
         return new ArticleEnvelope(articles.getBySlug(slug, viewerId(jwt)));
     }
 
@@ -67,8 +69,7 @@ public class ArticleController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody UpdateArticleRequest request
     ) {
-        UUID actorID = UUID.fromString(jwt.getSubject());
-        return new ArticleEnvelope(articles.update(actorID, slug, request.article()));
+        return new ArticleEnvelope(articles.update(actorId(jwt), slug, request.article()));
     }
 
     @DeleteMapping({"/{slug}", "/{slug}/"})
@@ -79,8 +80,7 @@ public class ArticleController {
             @PathVariable("slug") String slug,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        UUID actorId = UUID.fromString(jwt.getSubject());
-        articles.delete(actorId, slug);
+        articles.delete(actorId(jwt), slug);
     }
 
     @GetMapping({"/feed", "/feed/"})
@@ -91,7 +91,7 @@ public class ArticleController {
             @RequestParam(name = "offset", defaultValue = "0") int offset,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return articles.feed(UUID.fromString(jwt.getSubject()), limit, offset);
+        return articles.feed(actorId(jwt), limit, offset);
     }
 
     @PostMapping({"/{slug}/favorite", "/{slug}/favorite/"})
@@ -101,8 +101,7 @@ public class ArticleController {
             @PathVariable("slug") String slug,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        UUID actorId = UUID.fromString(jwt.getSubject());
-        return new ArticleEnvelope(articles.favorite(actorId, slug));
+        return new ArticleEnvelope(articles.favorite(actorId(jwt), slug));
     }
 
     @DeleteMapping({"/{slug}/favorite", "/{slug}/favorite/"})
@@ -112,14 +111,8 @@ public class ArticleController {
             @PathVariable("slug") String slug,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        UUID actorId = UUID.fromString(jwt.getSubject());
-        return new ArticleEnvelope(articles.unfavorite(actorId, slug));
+        return new ArticleEnvelope(articles.unfavorite(actorId(jwt), slug));
     }
-
-    public static UUID viewerId(Jwt jwt) {
-        return jwt == null ? null : UUID.fromString(jwt.getSubject());
-    }
-
 
     public record CreateArticleRequest(@NotNull @Valid CreateArticleCommand article) {
     }

@@ -1,58 +1,26 @@
 package de.conduit.articles;
 
-
-import de.conduit.articles.exception.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import de.conduit.articles.exception.ArticleAccessDeniedException;
+import de.conduit.articles.exception.ArticleNotFoundException;
+import de.conduit.articles.exception.AuthorAccountMissingException;
+import de.conduit.articles.exception.FavoriteUserNotFoundException;
+import de.conduit.articles.exception.InvalidArticleContentException;
+import de.conduit.articles.exception.InvalidArticleQueryException;
+import de.conduit.web.ApiExceptionHandler;
+import de.conduit.web.ErrorResponse;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 @RestControllerAdvice(assignableTypes = {ArticleController.class, TagController.class})
-public class ArticleExceptionHandler {
-    @ExceptionHandler(ArticleNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse notFound(ArticleNotFoundException exception) {
-        return error(exception.getMessage());
-    }
+public class ArticleExceptionHandler extends ApiExceptionHandler {
 
-    @ExceptionHandler(AuthorAccountMissingException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse missingAuthor(AuthorAccountMissingException exception) {
-        return error(exception.getMessage());
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ExceptionHandler({InvalidArticleQueryException.class, InvalidArticleContentException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse invalidRequest(MethodArgumentNotValidException exception) {
-        List<String> messages = exception.getBindingResult().getFieldErrors()
-                .stream()
-                .map(field -> field.getField() + ": " + field.getDefaultMessage())
-                .sorted()
-                .toList();
-        return new ErrorResponse(Map.of("body", messages));
-    }
-
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse unreadableBody() {
-        return error("Request body must contain valid JSON in the expected format");
-    }
-
-    @ExceptionHandler(ArticleAccessDeniedException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ErrorResponse forbidden(ArticleAccessDeniedException exception) {
-        return error(exception.getMessage());
-    }
-
-    @ExceptionHandler(InvalidArticleQueryException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse invalidQuery(InvalidArticleQueryException exception) {
+    public ErrorResponse badRequest(RuntimeException exception) {
         return error(exception.getMessage());
     }
 
@@ -62,9 +30,21 @@ public class ArticleExceptionHandler {
         return error("Query parameters have invalid values: limit and offset must be integers");
     }
 
-    @ExceptionHandler(InvalidArticleContentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse invalidContent(InvalidArticleContentException exception) {
+    @ExceptionHandler({AuthorAccountMissingException.class, FavoriteUserNotFoundException.class})
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse missingAccount(RuntimeException exception) {
+        return error(exception.getMessage());
+    }
+
+    @ExceptionHandler(ArticleAccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse forbidden(ArticleAccessDeniedException exception) {
+        return error(exception.getMessage());
+    }
+
+    @ExceptionHandler(ArticleNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse notFound(ArticleNotFoundException exception) {
         return error(exception.getMessage());
     }
 
@@ -72,18 +52,5 @@ public class ArticleExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse concurrentChange() {
         return error("Article was changed by another request. Reload it and try again.");
-    }
-
-    @ExceptionHandler(FavoriteUserNotFoundException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse missingFavoriteUser(FavoriteUserNotFoundException exception) {
-        return error(exception.getMessage());
-    }
-
-    private static ErrorResponse error(String message) {
-        return new ErrorResponse(Map.of("body", List.of(message)));
-    }
-
-    public record ErrorResponse(Map<String, List<String>> errors) {
     }
 }

@@ -20,8 +20,7 @@ public class DefaultAuthorProfiles implements AuthorProfiles {
 
     @Override
     public Optional<AuthorProfile> findById(UUID userID) {
-        return users.findById(userID).map(user -> new AuthorProfile(user.getId(),
-                user.getUsername(), user.getBio(), user.getImageUrl()));
+        return users.findById(userID).map(DefaultAuthorProfiles::view);
     }
 
     @Override
@@ -43,5 +42,4 @@ public class DefaultAuthorProfiles implements AuthorProfiles {
     private static AuthorProfile view(User user) {
         return new AuthorProfile(user.getId(), user.getUsername(), user.getBio(), user.getImageUrl());
     }
-
 }

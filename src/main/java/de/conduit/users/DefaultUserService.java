@@ -1,22 +1,29 @@
 package de.conduit.users;
 
-
 import de.conduit.security.TokenIssuer;
-import de.conduit.users.dto.*;
-import de.conduit.users.exception.*;
+import de.conduit.users.dto.AuthenticatedUser;
+import de.conduit.users.dto.CurrentUser;
+import de.conduit.users.dto.LoginUserCommand;
+import de.conduit.users.dto.ProfileView;
+import de.conduit.users.dto.RegisterUserCommand;
+import de.conduit.users.dto.UpdateUserCommand;
+import de.conduit.users.exception.CurrentUserNotFoundException;
+import de.conduit.users.exception.EmailAlreadyTakenException;
+import de.conduit.users.exception.InvalidCredentialsException;
+import de.conduit.users.exception.InvalidFollowException;
+import de.conduit.users.exception.ProfileNotFoundException;
+import de.conduit.users.exception.UsernameAlreadyTakenException;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.annotation.Validated;
-
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.Set;
-
+import java.util.UUID;
 
 @Service
 @Validated
@@ -61,7 +68,6 @@ public class DefaultUserService implements UserService {
 
         return authenticatedUser(user);
     }
-
 
     private static RuntimeException translateUniqueConflict(DataIntegrityViolationException exception) {
         Throwable cause = exception;
@@ -110,7 +116,7 @@ public class DefaultUserService implements UserService {
     public CurrentUser getCurrentUser(UUID userID) {
         User user = users.findById(userID).orElseThrow(CurrentUserNotFoundException::new);
 
-        return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
+        return currentUser(user);
     }
 
     @Override
@@ -137,7 +143,7 @@ public class DefaultUserService implements UserService {
             throw translateUniqueConflict(exception);
         }
 
-        return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
+        return currentUser(user);
     }
 
     @Override
@@ -177,14 +183,16 @@ public class DefaultUserService implements UserService {
         return profile(target, add);
     }
 
-
     private User requireProfile(String username) {
         return users.findByUsernameIgnoreCase(username.strip())
                 .orElseThrow(ProfileNotFoundException::new);
     }
 
+    private static CurrentUser currentUser(User user) {
+        return new CurrentUser(user.getId(), user.getUsername(), user.getEmail(), user.getBio(), user.getImageUrl(), user.getRole());
+    }
+
     private static ProfileView profile(User user, boolean following) {
         return new ProfileView(user.getUsername(), user.getBio(), user.getImageUrl(), following);
     }
-
 }
