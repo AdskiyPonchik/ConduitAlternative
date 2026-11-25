@@ -2,6 +2,9 @@ package de.conduit.security;
 
 
 import jakarta.servlet.DispatcherType;
+import de.conduit.demo.DemoRequestFilter;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Collections;
@@ -20,6 +24,7 @@ import java.util.regex.Pattern;
 
 
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfiguration {
     private static final Pattern AUTHORIZATION = Pattern.compile(
             "^(?:Bearer|Token) "
@@ -55,8 +60,10 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            BearerTokenResolver bearerTokenResolver
+            BearerTokenResolver bearerTokenResolver,
+            ObjectProvider<DemoRequestFilter> demoFilter
     ) throws Exception {
+        demoFilter.ifAvailable(filter -> http.addFilterAfter(filter, BearerTokenAuthenticationFilter.class));
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
@@ -85,7 +92,9 @@ public class SecurityConfiguration {
                                 "/api/articles",
                                 "/api/articles/",
                                 "/api/tags",
-                                "/api/tags/"
+                                "/api/tags/",
+                                "/api/demo",
+                                "/api/demo/"
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,

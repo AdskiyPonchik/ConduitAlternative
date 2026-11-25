@@ -4,13 +4,15 @@
       <div class="container">
         <div class="row">
           <div class="col-xs-12 col-md-10 offset-md-1">
+            <RequestError :message="profileError" retry @retry="fetchProfile" />
+            <RequestError :message="followError" />
             <div
-              v-if="!profile"
+              v-if="profileLoading"
               class="align-left"
             >
               Profile is downloading...
             </div>
-            <template v-else>
+            <template v-else-if="profile">
               <img
                 class="user-img"
                 :alt="profile.username"
@@ -70,12 +72,13 @@ import { useFollow } from 'src/composable/use-follow-profile'
 import { useProfile } from 'src/composable/use-profile'
 import type { Profile } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
+import RequestError from 'src/components/RequestError.vue'
 
 const route = useRoute()
 const username = computed<string>(() => route.params.username as string)
-const { profile, updateProfile } = useProfile({ username })
+const { profile, updateProfile, error: profileError, loading: profileLoading, fetchProfile } = useProfile({ username })
 
-const { followProcessGoing, toggleFollow } = useFollow({
+const { followProcessGoing, toggleFollow, error: followError } = useFollow({
   following: computed<boolean>(() => profile.value?.following ?? false),
   username,
   onUpdate: (newProfileData: Profile) => updateProfile(newProfileData),

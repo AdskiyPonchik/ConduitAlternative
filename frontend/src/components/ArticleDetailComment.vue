@@ -27,14 +27,14 @@
       </AppLink>
       <span class="date-posted">{{ (new Date(comment.createdAt)).toLocaleDateString('en-US') }}</span>
       <span class="mod-options">
-        <i
+        <button
           v-if="showRemove"
+          type="button"
+          :disabled="deleting"
           class="ion-trash-a"
-          role="button"
           aria-label="Delete comment"
           tabindex="0"
           @click="emit('remove-comment')"
-          @keypress.enter="emit('remove-comment')"
         />
       </span>
     </div>
@@ -48,6 +48,7 @@ import type { Comment } from 'src/services/api'
 interface Props {
   comment: Comment
   username?: string
+  deleting?: boolean
 }
 
 const props = defineProps<Props>()

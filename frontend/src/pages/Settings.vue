@@ -63,7 +63,7 @@
               <button
                 type="submit"
                 class="btn btn-lg btn-primary pull-xs-right"
-                :disabled="isButtonDisabled"
+                :disabled="saving || isButtonDisabled"
               >
                 Update Settings
               </button>
@@ -88,17 +88,21 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { routerPush } from 'src/router'
-import { api, isFetchError } from 'src/services'
+import { api } from 'src/services'
 import type { UpdateUser } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
 import { validatePassword } from 'src/utils/password'
+import { formErrors } from 'src/utils/errors'
+import { signInAfterExpiry } from 'src/utils/use-async'
 
 const form: UpdateUser = reactive({})
 
 const userStore = useUserStore()
-const errors = ref()
+const errors = ref<Record<string, string[]>>({})
+const saving = ref(false)
 
 async function onSubmit() {
+  if (saving.value) return
   errors.value = {}
   if (form.password) {
     const passwordError = validatePassword(form.password)
@@ -108,8 +112,8 @@ async function onSubmit() {
     }
   }
 
+  saving.value = true
   try {
-
     const filteredForm = Object.entries(form).reduce((acc, [k, v]) => {
       if (v === null || (k === 'password' && v === '')) {
         return acc
@@ -121,9 +125,10 @@ async function onSubmit() {
     await routerPush('profile', { username: userData.username })
   }
   catch (error) {
-    if (isFetchError(error))
-      errors.value = error.error?.errors
+    errors.value = formErrors(error)
+    await signInAfterExpiry(error)
   }
+  finally { saving.value = false }
 }
 
 async function onLogout() {

@@ -57,7 +57,7 @@
             <button
               type="submit"
               class="btn btn-lg btn-primary pull-xs-right"
-              :disabled="!(form.email && form.username && form.password)"
+              :disabled="saving || !(form.email && form.username && form.password)"
             >
               Sign up
             </button>
@@ -70,8 +70,9 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { routerPush } from 'src/router'
-import { api, isFetchError } from 'src/services'
+import { useRoute, useRouter } from 'vue-router'
+import { formErrors } from 'src/utils/errors'
+import { api } from 'src/services'
 import type { NewUser } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
 import { validatePassword } from 'src/utils/password'
@@ -85,9 +86,13 @@ const form: NewUser = reactive({
 
 const { updateUser } = useUserStore()
 
-const errors = ref()
+const errors = ref<Record<string, string[]>>({})
+const saving = ref(false)
+const route = useRoute()
+const router = useRouter()
 
 async function register() {
+  if (saving.value) return
   errors.value = {}
 
   if (!formRef.value?.checkValidity())
@@ -99,14 +104,14 @@ async function register() {
     return
   }
 
+  saving.value = true
   try {
     const result = await api.users.createUser({ user: form }, { secure: false })
     updateUser(result.data.user)
-    await routerPush('global-feed')
+    const target = route.query.redirect
+    await router.push(typeof target === 'string' && /^\/(?!\/)/.test(target) ? target : { name: 'global-feed' })
   }
-  catch (error) {
-    if (isFetchError(error))
-      errors.value = error.error?.errors
-  }
+  catch (error) { errors.value = formErrors(error) }
+  finally { saving.value = false }
 }
 </script>

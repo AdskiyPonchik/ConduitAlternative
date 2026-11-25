@@ -1,12 +1,32 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render } from '@testing-library/vue'
+import { fireEvent, render, waitFor } from '@testing-library/vue'
 import { useUserStore } from 'src/store/user'
 import fixtures from 'src/utils/test/fixtures'
 import { createTestRouter, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
 import Login from './Login.vue'
+import { api } from 'src/services'
 
 describe('# Login page', () => {
   const server = setupMockServer()
+
+  it('blocks duplicate submits while login is pending and shows network failures', async () => {
+    let fail!: (error: unknown) => void
+    const login = vi.spyOn(api.users, 'login').mockImplementation(() => new Promise((_, reject) => { fail = reject }))
+    try {
+      const { getByRole, getByPlaceholderText, container } = render(Login, renderOptions())
+      await fireEvent.update(getByPlaceholderText('Email'), 'email@example.test')
+      await fireEvent.update(getByPlaceholderText('Password'), 'password')
+      const form = getByRole('form', { name: 'Login form' })
+      await fireEvent.submit(form)
+      await fireEvent.submit(form)
+      expect(login).toHaveBeenCalledTimes(1)
+      expect(getByRole('button', { name: 'Sign in' })).toBeDisabled()
+      fail(new TypeError('offline'))
+      await waitFor(() => expect(container).toHaveTextContent('Unable to complete'))
+      expect(getByRole('button', { name: 'Sign in' })).not.toBeDisabled()
+    }
+    finally { login.mockRestore() }
+  })
 
   it('should call login api when fill form and click submit button', async () => {
     const router = createTestRouter()

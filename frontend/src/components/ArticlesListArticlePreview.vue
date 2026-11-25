@@ -28,6 +28,7 @@
       </button>
     </div>
 
+    <RequestError :message="error" />
     <AppLink
       class="preview-link"
       name="article"
@@ -61,6 +62,7 @@
 import { computed } from 'vue'
 import { useFavoriteArticle } from 'src/composable/use-favorite-article'
 import type { Article } from 'src/services/api'
+import RequestError from './RequestError.vue'
 
 interface Props {
   article: Article
@@ -75,6 +77,7 @@ const emit = defineEmits<Emits>()
 const {
   favoriteProcessGoing,
   favoriteArticle,
+  error,
 } = useFavoriteArticle({
   isFavorited: computed(() => props.article.favorited),
   articleSlug: computed(() => props.article.slug),

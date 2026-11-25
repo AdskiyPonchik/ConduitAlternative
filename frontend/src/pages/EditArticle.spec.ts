@@ -1,14 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { fireEvent, render, waitFor } from '@testing-library/vue'
 import fixtures from 'src/utils/test/fixtures'
 import { createTestRouter, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
 import EditArticle from './EditArticle.vue'
+import { saveDraft } from 'src/utils/drafts'
 
 const initialState = { user: { user: fixtures.user } }
+afterEach(() => sessionStorage.clear())
 
 describe('# EditArticle page', () => {
   const server = setupMockServer()
+
+  it('restores a saved article draft after returning from sign in', async () => {
+    saveDraft(`article:${fixtures.user.username}:new`, {
+      title: 'Saved title', description: 'Saved description', body: 'Saved text', tagList: ['draft'],
+    })
+    const { getByRole, getByPlaceholderText } = render(EditArticle, await renderOptions({
+      initialState, initialRoute: { name: 'create-article' },
+    }))
+    await waitFor(() => expect(getByPlaceholderText('Write your article (in markdown)')).toHaveValue('Saved text'))
+    expect(getByRole('status')).toHaveTextContent('draft has been restored')
+  })
 
   it('creates an article with its selected tags', async () => {
     server.use(['POST', '/api/articles', { article: { ...fixtures.article, slug: 'article-title' } }])

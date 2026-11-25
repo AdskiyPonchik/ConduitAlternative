@@ -11,7 +11,20 @@ export const api = new Api({
     const response = await fetch(input, init)
     const token = getSession()?.token
     if (response.status === 401 && token && authorization === `Token ${token}`) {
-      setSession(null)
+      setSession(null, true)
+    }
+    // Concurrent public requests may all have carried the expired token. Retry
+    // only safe public reads, once, and only while there is no newer session.
+    const path = new URL(String(input), location.origin).pathname.replace(/\/$/, '')
+    const publicRead = path !== '/api/articles/feed' && (
+      /^\/api\/articles(?:\/[^/]+(?:\/comments)?)?$/.test(path)
+      || /^\/api\/profiles\/[^/]+$/.test(path) || path === '/api/tags'
+    )
+    if (response.status === 401 && authorization && !getSession()
+      && (init?.method ?? 'GET').toUpperCase() === 'GET' && publicRead) {
+      const headers = new Headers(init?.headers)
+      headers.delete('Authorization')
+      return fetch(input, { ...init, headers })
     }
     return response
   },

@@ -11,7 +11,7 @@ public class PostgresTestConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgres(){
-        return new PostgreSQLContainer("postgres:16-alpine");
+        return new PostgreSQLContainer("postgres:16-alpine").withDatabaseName("conduit_test_demo");
     }
 
 }

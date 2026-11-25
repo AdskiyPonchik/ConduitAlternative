@@ -34,7 +34,7 @@ These credentials are for local development. On later runs, start the existing c
 
 ### 2. Configure the backend
 
-Create `.env` in the repository root. The backend reads it as a properties file:
+Copy `.env.example` to `.env` in the repository root and replace its placeholders. The backend reads it as a properties file:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/conduit
@@ -116,7 +116,7 @@ Backend, from the repository root:
 
 Database tests start their own PostgreSQL container through Testcontainers. You do not need to start the application or the development database first. Docker must be running; the first test run may download the database image. `package` also runs the tests and produces `target/conduit-backend-0.0.1-SNAPSHOT.jar`.
 
-Frontend, from `frontend/`:
+Frontend, from `frontend/` (type checking also checks the browser tests):
 
 ```sh
 pnpm test:unit
@@ -125,6 +125,25 @@ pnpm build
 ```
 
 The frontend build goes to `frontend/dist`. It is not bundled into the backend JAR. Deployment needs a web server for the frontend and routing for `/api`; the Vite development proxy is not part of the production build.
+
+## Browser tests and CI
+
+The Playwright suite starts a real Spring Boot application and a disposable PostgreSQL 16 container. From `frontend/`:
+
+```sh
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+Docker must be reachable. Test servers use ports 18080 and 14173 and never reuse a running development server. See [verification](docs/verification.md) for the scenarios and commands.
+
+GitHub Actions runs backend verification, frontend checks/build and then browser integration on pushes and pull requests. The workflow does not deploy the app.
+
+## Demo environment
+
+The optional `demo` Spring profile provides fifteen sample articles, authors, comments, favorites, follows and configurable request limits. It requires a dedicated database with a name ending in `_demo` and an explicit database-name confirmation. Ordinary startup preserves visitor changes; restoring the dataset is a separate, non-web maintenance command.
+
+See [demo setup and reset policy](docs/demo.md) before enabling this profile. [Implementation notes](docs/completion-notes.md) explain request ordering, sessions, drafts and demo safeguards. Normal application startup does not seed content. Deployment configuration is not included.
 
 ## Code layout
 
@@ -135,6 +154,7 @@ src/main/java/de/conduit/
   comments/       comments and their permissions
   security/       password hashing, JWT and access rules
   config/         shared configuration
+  demo/           opt-in demo initialization, metadata and request limits
 src/main/resources/db/migration/
                   versioned SQL migrations
 src/test/java/    backend tests

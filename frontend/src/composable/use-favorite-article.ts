@@ -16,10 +16,11 @@ export function useFavoriteArticle({ isFavorited, articleSlug, onUpdate }: useFa
     onUpdate(article)
   }
 
-  const { active, run } = useAsync(favoriteArticle)
+  const { active, run, error } = useAsync(favoriteArticle)
 
   return {
     favoriteProcessGoing: active,
+    error,
     favoriteArticle: run,
   }
 }

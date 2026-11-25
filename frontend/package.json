@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">= 20"
+    "node": ">=24"
   },
   "packageManager": "pnpm@10.17.1",
   "type": "module",
@@ -12,12 +12,13 @@
     "build": "vite build",
     "build:analyze": "cross-env ANALYZE=1 vite build && size-limit",
     "serve": "vite preview --port 4173",
-    "type-check": "vue-tsc --noEmit",
+    "type-check": "vue-tsc --noEmit && tsc --project tsconfig.e2e.json",
     "test": "pnpm test:unit",
     "test:unit": "vitest run",
     "generate:api": "curl -sL https://raw.githubusercontent.com/gothinkster/realworld/refs/heads/main/api/openapi.yml -o ./src/services/openapi.yml && sta generate -p ./src/services/openapi.yml -o ./src/services -n api.ts",
     "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint:fix": "eslint --fix",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "insane": "^2.6.2",

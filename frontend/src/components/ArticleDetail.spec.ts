@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/vue'
+import { render, waitFor } from '@testing-library/vue'
 import fixtures from 'src/utils/test/fixtures'
-import { asyncWrapper, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
+import { asyncWrapper, createTestRouter, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
 import ArticleDetail from './ArticleDetail.vue'
 
 describe('# ArticleDetail', () => {
@@ -10,6 +10,21 @@ describe('# ArticleDetail', () => {
     ['/api/articles/markdown-cn', { article: { ...fixtures.article, body: fixtures.markdownCN } }],
     ['/api/articles/markdown-xss', { article: { ...fixtures.article, body: fixtures.markdownXss } }],
   )
+
+  it('loads a different article when the same component receives another slug', async () => {
+    server.use(
+      ['/api/articles/first', { article: { ...fixtures.article, title: 'First article' } }],
+      ['/api/articles/second', { article: { ...fixtures.article, title: 'Second article' } }],
+    )
+    const router = createTestRouter()
+    const { getByRole, queryByRole } = render(ArticleDetail, await renderOptions({
+      router, initialRoute: { name: 'article', params: { slug: 'first' } },
+    }))
+    await waitFor(() => expect(getByRole('heading', { name: 'First article' })).toBeVisible())
+    await router.push({ name: 'article', params: { slug: 'second' } })
+    await waitFor(() => expect(getByRole('heading', { name: 'Second article' })).toBeVisible())
+    expect(queryByRole('heading', { name: 'First article' })).toBeNull()
+  })
 
   it('should render markdown body correctly', async () => {
     const { container } = render(asyncWrapper(ArticleDetail), await renderOptions({

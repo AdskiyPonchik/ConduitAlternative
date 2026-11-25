@@ -1,6 +1,5 @@
 import type { RouteParams, RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthorized } from './store/user'
 
 export type AppRouteNames =
   | 'global-feed'
@@ -57,13 +56,11 @@ export const routes: RouteRecordRaw[] = [
     name: 'login',
     path: '/login',
     component: () => import('./pages/Login.vue'),
-    beforeEnter: () => !isAuthorized(),
   },
   {
     name: 'register',
     path: '/register',
     component: () => import('./pages/Register.vue'),
-    beforeEnter: () => !isAuthorized(),
   },
   {
     name: 'profile',

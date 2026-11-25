@@ -28,6 +28,38 @@ function unauthorized() {
 }
 
 describe('API session handling', () => {
+  it('retries a public read once without the expired token', async () => {
+    setSession(user)
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(unauthorized())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ articles: [], articlesCount: 0 })))
+    await expect(api.articles.getArticles()).resolves.toMatchObject({ data: { articles: [] } })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false)
+    expect(getSession()).toBeNull()
+  })
+
+  it('never retries writes or the protected feed after a 401', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => unauthorized())
+    setSession(user)
+    await expect(api.articles.getArticlesFeed()).rejects.toMatchObject({ status: 401 })
+    setSession(user)
+    await expect(api.articles.createArticleFavorite('article')).rejects.toMatchObject({ status: 401 })
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a public request against a newer session', async () => {
+    setSession(user)
+    let respond!: (response: Response) => void
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(resolve => { respond = resolve }))
+    const request = api.articles.getArticles()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    setSession({ ...user, token: 'new-token' })
+    respond(unauthorized())
+    await expect(request).rejects.toMatchObject({ status: 401 })
+    expect(getSession()?.token).toBe('new-token')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('clears storage and the visible user after an authenticated 401', async () => {
     setSession(user)
     const store = useUserStore()
@@ -70,7 +102,7 @@ describe('API session handling', () => {
     expect(getSession()).toEqual(user)
   })
 
-  it('restores current server user data before navigation starts', async () => {
+  it('restores current server user data without controlling navigation', async () => {
     setSession(user)
     const current = { ...user, username: 'renamed-on-server', bio: 'Updated elsewhere' }
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ user: current })))

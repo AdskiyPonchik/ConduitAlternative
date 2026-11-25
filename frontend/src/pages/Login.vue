@@ -50,7 +50,7 @@
             <button
               type="submit"
               class="btn btn-lg btn-primary pull-xs-right"
-              :disabled="!form.email || !form.password"
+              :disabled="saving || !form.email || !form.password"
             >
               Sign in
             </button>
@@ -63,7 +63,8 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { routerPush } from 'src/router'
+import { useRoute, useRouter } from 'vue-router'
+import { formErrors } from 'src/utils/errors'
 import { api, isFetchError } from 'src/services'
 import type { LoginUser } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
@@ -76,31 +77,29 @@ const form: LoginUser = reactive({
 
 const { updateUser } = useUserStore()
 
-const errors = ref()
+const errors = ref<Record<string, string[]>>({})
+const saving = ref(false)
+const route = useRoute()
+const router = useRouter()
 
 async function login() {
+  if (saving.value) return
   errors.value = {}
 
   if (!formRef.value?.checkValidity())
     return
 
+  saving.value = true
   try {
     const result = await api.users.login({ user: form }, { secure: false })
     updateUser(result.data.user)
-    await routerPush('global-feed')
+    const target = route.query.redirect
+    await router.push(typeof target === 'string' && /^\/(?!\/)/.test(target) ? target : { name: 'global-feed' })
   }
-  catch (error: any) {
-    if (isFetchError(error)) {
-      // Spezifische Abfrage für Authentifizierungsfehler
-      if (error.status === 401) { // "Incorrect Credentials"
-        errors.value = { 'Anmeldung': ['fehlgeschlagen. E-Mail oder Passwort ist inkorrekt.'] }
-      } else {
-        // Fallback: Entweder die exakte Backend-Meldung oder ein generischer Fehlertext
-        errors.value = error.error?.errors || { 'Ein unbekannter Fehler': ['ist aufgetreten. Bitte versuche es später erneut.'] }
-      }
-      return
-    }
-    console.error(error)
+  catch (error) {
+    errors.value = isFetchError(error) && error.status === 401
+      ? { '': ['Incorrect email or password.'] } : formErrors(error)
   }
+  finally { saving.value = false }
 }
 </script>

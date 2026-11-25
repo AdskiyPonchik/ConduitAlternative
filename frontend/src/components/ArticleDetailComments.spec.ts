@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render } from '@testing-library/vue'
+import { fireEvent, render, waitFor } from '@testing-library/vue'
 import fixtures from 'src/utils/test/fixtures'
-import { asyncWrapper, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
+import { asyncWrapper, createTestRouter, renderOptions, setupMockServer } from 'src/utils/test/test.utils'
 import ArticleDetailComments from './ArticleDetailComments.vue'
 
 describe('# ArticleDetailComments', () => {
@@ -13,6 +13,21 @@ describe('# ArticleDetailComments', () => {
     ['POST', '/api/articles/*/comments', { comment: fixtures.comment2 }],
     ['DELETE', '/api/articles/*/comments/*'],
   )
+
+  it('replaces comments when navigating to a different article in the same component', async () => {
+    server.use(
+      ['GET', '/api/articles/first/comments', { comments: [{ ...fixtures.comment, body: 'First comments' }] }],
+      ['GET', '/api/articles/second/comments', { comments: [{ ...fixtures.comment, body: 'Second comments' }] }],
+    )
+    const router = createTestRouter()
+    const { getByText, queryByText } = render(ArticleDetailComments, await renderOptions({
+      router, initialRoute: { name: 'article', params: { slug: 'first' } },
+    }))
+    await waitFor(() => expect(getByText('First comments')).toBeVisible())
+    await router.push({ name: 'article', params: { slug: 'second' } })
+    await waitFor(() => expect(getByText('Second comments')).toBeVisible())
+    expect(queryByText('First comments')).toBeNull()
+  })
 
   it('should render correctly', async () => {
     const { container } = render(asyncWrapper(ArticleDetailComments), await renderOptions({

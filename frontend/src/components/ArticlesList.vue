@@ -5,6 +5,7 @@
     :username="username"
   />
 
+  <RequestError :message="error" retry @retry="fetchArticles" />
   <div
     v-if="articlesDownloading"
     class="article-preview"
@@ -13,7 +14,7 @@
   </div>
 
   <div
-    v-else-if="articles.length === 0"
+    v-else-if="!error && articles.length === 0"
     class="article-preview"
   >
     No articles are here... yet.
@@ -40,9 +41,11 @@ import { useArticles } from 'src/composable/use-articles'
 import AppPagination from './AppPagination.vue'
 import ArticlesListArticlePreview from './ArticlesListArticlePreview.vue'
 import ArticlesListNavigation from './ArticlesListNavigation.vue'
+import RequestError from './RequestError.vue'
 
 const {
   fetchArticles,
+  error,
   articlesDownloading,
   articlesCount,
   articles,
@@ -53,5 +56,4 @@ const {
   username,
 } = useArticles()
 
-await fetchArticles()
 </script>

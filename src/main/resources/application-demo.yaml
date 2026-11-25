@@ -1,0 +1,12 @@
+conduit:
+  demo:
+    enabled: true
+    database-name: ${CONDUIT_DEMO_DATABASE:}
+    password: ${CONDUIT_DEMO_PASSWORD:}
+    reset: ${CONDUIT_DEMO_RESET:false}
+    limits:
+      enabled: true
+      max-body-bytes: 524288
+      login-per-minute: 10
+      registrations-per-hour: 5
+      writes-per-minute: 30

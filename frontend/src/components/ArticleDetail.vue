@@ -1,4 +1,7 @@
 <template>
+  <RequestError :message="error" retry @retry="reload" />
+  <p v-if="loading" class="container page">Article is downloading...</p>
+  <template v-if="article">
   <div class="banner" data-testid="article-banner">
     <div class="container">
       <h1>{{ article.title }}</h1>
@@ -45,23 +48,32 @@
       />
     </div>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import marked from 'src/plugins/marked'
 import { api } from 'src/services'
 import type { Article } from 'src/services/api'
 import ArticleDetailMeta from './ArticleDetailMeta.vue'
+import RequestError from './RequestError.vue'
+import { useResource } from 'src/composable/use-resource'
+import { useUserStore } from 'src/store/user'
 
 const route = useRoute()
-const slug = route.params.slug as string
-const article: Article = reactive(await api.articles.getArticle(slug).then(res => res.data.article))
+const user = useUserStore()
+const { data: article, loading, error, reload } = useResource<Article | null>(
+  () => [route.params.slug, user.user?.token],
+  async () => route.params.slug
+    ? (await api.articles.getArticle(String(route.params.slug))).data.article : null,
+  null,
+)
 
-const articleHandledBody = computed(() => marked(article.body))
+const articleHandledBody = computed(() => marked(article.value?.body))
 
 function updateArticle(newArticle: Article) {
-  Object.assign(article, newArticle)
+  article.value = newArticle
 }
 </script>

@@ -6,6 +6,9 @@
           <ul v-if="errors.length" class="error-messages">
             <li v-for="error in errors" :key="error">{{ error }}</li>
           </ul>
+          <RequestError :message="loadError" retry @retry="loadArticle" />
+          <p v-if="loading">Article is downloading...</p>
+          <p v-if="draftRestored" role="status">Your draft has been restored.</p>
           <form @submit.prevent="onSubmit">
             <fieldset class="form-group">
               <input
@@ -29,7 +32,7 @@
             <div class="row">
               <div class="col-md-6">
                 <fieldset class="form-group">
-                  <label><strong>Artikel-Inhalt (Markdown)</strong></label>
+                  <label><strong>Article content (Markdown)</strong></label>
                   <textarea
                     class="form-control"
                     aria-label="Body"
@@ -41,7 +44,7 @@
               </div>
               <div class="col-md-6">
                 <fieldset class="form-group">
-                  <label><strong>Live-Vorschau (WYSIWYG)</strong></label>
+                  <label><strong>Live preview</strong></label>
                   <div
                     id="article-content"
                     class="form-control article-content"
@@ -85,7 +88,7 @@
             <button
               type="submit"
               class="btn btn-lg pull-xs-right btn-primary"
-              :disabled="saving || !(form.title && form.description && form.body)"
+              :disabled="loading || !!loadError || saving || !(form.title && form.description && form.body)"
             >
               Publish Article
             </button>
@@ -97,12 +100,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onScopeDispose, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, isFetchError } from 'src/services'
 import type { Article } from 'src/services/api'
 import renderMarkdown from 'src/plugins/marked'
 import { useUserStore } from 'src/store/user'
+import RequestError from 'src/components/RequestError.vue'
+import { readDraft, saveDraft, removeDraft } from 'src/utils/drafts'
+import { errorMessages } from 'src/utils/errors'
 
 interface FormState {
   title: string
@@ -137,36 +143,48 @@ function removeTag(tag: string) {
 
 const renderedBody = computed(() => renderMarkdown(form.body))
 
-async function fetchArticle(slug: string) {
-  const article = await api.articles.getArticle(slug).then(res => res.data.article)
+const loading = ref(false)
+const loadError = ref('')
+const draftRestored = ref(false)
+const owner = userStore.user?.username ?? ''
+const draftKey = computed(() => `article:${owner}:${slug.value || 'new'}`)
+let generation = 0
+let draftReady = false
 
-  form.title = article.title
-  form.description = article.description
-  form.body = article.body
-  form.tagList = article.tagList
-
-
-}
-
-onMounted(async () => {
+async function loadArticle() {
+  const current = ++generation
+  draftReady = false
+  loadError.value = ''
+  loading.value = true
   if (!userStore.isAuthorized) {
-    await router.replace({ name: 'login' })
+    loading.value = false
+    await router.replace({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
-  if (slug.value) {
-    try { await fetchArticle(slug.value) }
-    catch (error) { showErrors(error) }
+  try {
+    const article = slug.value ? (await api.articles.getArticle(slug.value)).data.article : null
+    if (current !== generation) return
+    Object.assign(form, article ? {
+      title: article.title, description: article.description, body: article.body, tagList: article.tagList,
+    } : { title: '', description: '', body: '', tagList: [] })
+    const draft = readDraft<FormState>(draftKey.value)
+    draftRestored.value = !!draft && typeof draft.title === 'string' && typeof draft.description === 'string'
+      && typeof draft.body === 'string' && Array.isArray(draft.tagList) && draft.tagList.every(tag => typeof tag === 'string')
+    if (draftRestored.value) Object.assign(form, draft)
+    draftReady = true
   }
-})
-
-function showErrors(error: unknown) {
-  errors.value = isFetchError(error)
-    ? Object.values(error.error?.errors ?? {}).flat()
-    : ['Unable to save the article. Please try again.']
-  if (!errors.value.length) errors.value = ['Unable to save the article. Please try again.']
+  catch (error) { if (current === generation) loadError.value = errorMessages(error).join(' ') }
+  finally { if (current === generation) loading.value = false }
 }
 
+watch(slug, () => {
+  if (route.name === 'create-article' || route.name === 'edit-article') void loadArticle()
+}, { immediate: true })
+onScopeDispose(() => { generation++ })
+watch(form, () => { if (draftReady) saveDraft(draftKey.value, form) }, { deep: true, flush: 'sync' })
+
 async function onSubmit() {
+  if (saving.value || loading.value || loadError.value) return
   errors.value = []
   saving.value = true
   try {
@@ -180,9 +198,17 @@ async function onSubmit() {
     else {
       article = await api.articles.createArticle({ article: form }).then(res => res.data.article)
     }
+    removeDraft(draftKey.value)
+    draftReady = false
     await router.push({ name: 'article', params: { slug: article.slug } })
   }
-  catch (error) { showErrors(error) }
+  catch (error) {
+    errors.value = errorMessages(error)
+    if (isFetchError(error) && error.status === 401 && !userStore.isAuthorized) {
+      saveDraft(draftKey.value, form)
+      await router.push({ name: 'login', query: { redirect: route.fullPath } })
+    }
+  }
   finally { saving.value = false }
 }
 </script>

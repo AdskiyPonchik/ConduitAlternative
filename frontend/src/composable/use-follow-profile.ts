@@ -16,10 +16,11 @@ export function useFollow({ username, following, onUpdate }: UseFollowProps) {
     onUpdate(profile)
   }
 
-  const { active, run } = useAsync(toggleFollow)
+  const { active, run, error } = useAsync(toggleFollow)
 
   return {
     followProcessGoing: active,
+    error,
     toggleFollow: run,
   }
 }

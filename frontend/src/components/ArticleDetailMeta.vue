@@ -50,10 +50,12 @@
       v-if="displayDeleteButton"
       class="btn btn-outline-danger btn-sm"
       aria-label="Delete article"
+      :disabled="deleting"
       @click="onDelete"
     >
       <i class="ion-trash-a" /> Delete Article
     </button>
+    <RequestError :message="favoriteError || followError || deleteError" />
   </div>
 </template>
 
@@ -66,6 +68,8 @@ import { routerPush } from 'src/router'
 import { api } from 'src/services'
 import type { Article, Profile } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
+import RequestError from './RequestError.vue'
+import useAsync from 'src/utils/use-async'
 
 interface Props {
   article: Article
@@ -85,18 +89,18 @@ const displayEditButton = computed(() => isAuthorized.value && user.value?.usern
 const displayDeleteButton = computed(() => isAuthorized.value && user.value?.username === article.value.author.username)
 const displayFollowButton = computed(() => isAuthorized.value && user.value?.username !== article.value.author.username)
 
-const { favoriteProcessGoing, favoriteArticle } = useFavoriteArticle({
+const { favoriteProcessGoing, favoriteArticle, error: favoriteError } = useFavoriteArticle({
   isFavorited: computed(() => article.value.favorited),
   articleSlug: computed(() => article.value.slug),
   onUpdate: newArticle => emit('update', newArticle),
 })
 
-async function onDelete() {
+const { active: deleting, error: deleteError, run: onDelete } = useAsync(async () => {
   await api.articles.deleteArticle(article.value.slug)
   await routerPush('global-feed')
-}
+})
 
-const { followProcessGoing, toggleFollow } = useFollow({
+const { followProcessGoing, toggleFollow, error: followError } = useFollow({
   following: computed(() => article.value.author.following),
   username: computed(() => article.value.author.username),
   onUpdate: (author: Profile) => {

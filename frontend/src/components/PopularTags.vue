@@ -1,5 +1,7 @@
 <template>
   <p>Popular Tags</p>
+  <RequestError :message="error" retry @retry="reload" />
+  <p v-if="loading">Popular tags are downloading...</p>
 
   <div class="tag-list">
     <AppLink
@@ -16,9 +18,10 @@
 </template>
 
 <script setup lang="ts">
-import { useTags } from 'src/composable/use-tags'
-
-const { tags, fetchTags } = useTags()
-
-await fetchTags()
+import { api } from 'src/services'
+import { useResource } from 'src/composable/use-resource'
+import RequestError from './RequestError.vue'
+const { data: tags, error, loading, reload } = useResource(
+  () => 'tags', async () => (await api.tags.getTags()).data.tags, [] as string[],
+)
 </script>

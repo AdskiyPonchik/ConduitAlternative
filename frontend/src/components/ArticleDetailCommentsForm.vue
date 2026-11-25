@@ -1,4 +1,6 @@
 <template>
+  <div class="comment-editor">
+  <RequestError :message="error" />
   <p v-if="!profile">
     <AppLink name="login">
       Sign in
@@ -30,21 +32,24 @@
         type="submit"
         class="btn btn-sm btn-primary"
         aria-label="Submit"
-        :disabled="comment === ''"
+        :disabled="submitting || !comment.trim()"
       >
         Post Comment
       </button>
     </div>
   </form>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useProfile } from 'src/composable/use-profile'
 import { api } from 'src/services'
 import type { Comment } from 'src/services/api'
 import { useUserStore } from 'src/store/user'
+import RequestError from './RequestError.vue'
+import useAsync from 'src/utils/use-async'
+import { readDraft, saveDraft, removeDraft } from 'src/utils/drafts'
 
 interface Props {
   articleSlug: string
@@ -57,16 +62,27 @@ const emit = defineEmits<{
 
 const { user } = storeToRefs(useUserStore())
 
-const username = computed(() => user.value?.username ?? '')
-const { profile } = useProfile({ username })
+const profile = computed(() => user.value)
+const owner = ref(user.value?.username ?? '')
+watch(() => user.value?.username, value => { if (value) owner.value = value })
+const draftKey = computed(() => `comment:${owner.value}:${props.articleSlug}`)
+function savedComment(key: string) {
+  const saved = readDraft<unknown>(key)
+  return typeof saved === 'string' ? saved : ''
+}
+const comment = ref(savedComment(draftKey.value))
+watch(draftKey, key => { comment.value = savedComment(key) })
+watch(comment, value => {
+  if (value) saveDraft(draftKey.value, value)
+  else removeDraft(draftKey.value)
+}, { flush: 'sync' })
 
-const comment = ref('')
-
-async function submitComment() {
+const { active: submitting, error, run: submitComment } = useAsync(async () => {
+  if (!comment.value.trim()) return
   const newComment = await api.articles
     .createArticleComment(props.articleSlug, { comment: { body: comment.value } })
     .then(res => res.data.comment)
   emit('add-comment', newComment)
   comment.value = ''
-}
+})
 </script>
