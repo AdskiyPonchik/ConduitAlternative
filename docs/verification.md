@@ -34,7 +34,7 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-On Linux CI, use `pnpm exec playwright install --with-deps chromium` to install browser system dependencies too. JDK 21 and Docker are also required.
+JDK 21 and Docker are also required. On a fresh Linux machine, `pnpm exec playwright install --with-deps chromium` installs browser system dependencies too; Playwright 1.60 supports this only up to Ubuntu 24.04.
 
 Playwright starts two processes and refuses to reuse existing servers:
 
@@ -51,6 +51,7 @@ Traces and screenshots are retained on failure. `pnpm exec playwright test --lis
 
 1. Backend `verify`, including PostgreSQL integration tests.
 2. Frontend type checking, unit tests and build with locked dependencies.
-3. Browser integration after both jobs pass, with Chromium installed on the runner.
+
+Browser integration is not part of CI; run it locally as described above. It was removed from the workflow on 2026-11-26 after `pnpm test:e2e` failed on the hosted runner for a reason that was not investigated.
 
 The workflow grants read-only repository permissions, cancels superseded runs for the same ref and retains failure reports. It does not deploy the application. A workflow file is not evidence of a successful hosted run; inspect its result after the commit is pushed.

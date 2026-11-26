@@ -137,7 +137,7 @@ pnpm test:e2e
 
 Docker must be reachable. Test servers use ports 18080 and 14173 and never reuse a running development server. See [verification](docs/verification.md) for the scenarios and commands.
 
-GitHub Actions runs backend verification, frontend checks/build and then browser integration on pushes and pull requests. The workflow does not deploy the app.
+GitHub Actions runs backend verification and frontend checks/build on pushes and pull requests. Browser tests are local-only and not part of CI. The workflow does not deploy the app.
 
 ## Demo environment
 
